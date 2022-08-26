@@ -1,6 +1,6 @@
 .............................................   ATTRACTORS  (RC @May 5, 2022) .........................................
 
-# A modular 3D Attractors Visualiser
+# A modular 3D Chaotic Attractors Visualiser
 
 1. Many Attractors supported (listed below)
 2. 3D free camera controls
