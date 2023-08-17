@@ -23,6 +23,10 @@ public interface DrawConfig {
 
     Color fg();
 
+    Color accent();
+
+    Color accent2();
+
     @Nullable
     Color drawingFill();
 

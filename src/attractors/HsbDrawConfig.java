@@ -9,6 +9,9 @@ import java.awt.*;
 
 public class HsbDrawConfig implements DrawConfig {
 
+    private static final Color COLOR_ACCENT = new Color(255, 219, 77, 255);
+    private static final Color COLOR_ACCENT2 = new Color(77, 157, 255, 255);
+
     @Override
     public float getStepPerMs() {
         return 0.0004f;
@@ -16,12 +19,12 @@ public class HsbDrawConfig implements DrawConfig {
 
     @Override
     public int getDrawingMaxPoints() {
-        return 50000;
+        return 70000;
     }
 
     @Override
     public float getDrawingScale(@NotNull PApplet p) {
-        return 5;
+        return 8;
     }
 
     @Override
@@ -38,6 +41,16 @@ public class HsbDrawConfig implements DrawConfig {
     @Override
     public Color fg() {
         return Color.WHITE;
+    }
+
+    @Override
+    public Color accent() {
+        return COLOR_ACCENT;
+    }
+
+    @Override
+    public Color accent2() {
+        return COLOR_ACCENT2;
     }
 
     @Override

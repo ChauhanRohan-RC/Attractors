@@ -6,7 +6,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import peasy.PeasyCam;
 import processing.core.PApplet;
+import processing.core.PFont;
 import processing.event.KeyEvent;
+import processing.opengl.PJOGL;
 
 import java.awt.*;
 import java.util.LinkedList;
@@ -16,9 +18,28 @@ public class Main extends PApplet {
     public static final boolean DEFAULT_FREE_CAM = true;
     public static final float[] INITIAL_CAM_ROTATIONS = new float[] { 0, 0, 0 };
 
+    public static final boolean DEFAULT_CONTROLS_SHOWN = true;
+    public static final boolean SHOW_CONTROLS_DES = true;
+
     private static final float SPEED_FACTOR_MIN = 0.1f;
     private static final float SPEED_FACTOR_MAX = 10f;
     private static final float SPEED_FACTOR_DEFAULT = 1f;
+
+    public static final float ATTRACTOR_ZOOM_MIN = 0.05f;
+    public static final float ATTRACTOR_ZOOM_MAX = 5;
+
+    public static final boolean ATTRACTOR_INVERT_X = false;
+    public static final boolean ATTRACTOR_INVERT_Y = true;
+    public static final boolean ATTRACTOR_INVERT_Z = false;
+
+    public static float attractorZoomIncStep(float current) {
+        return 0.01f;
+    }
+
+    public static float attractorZoomDecStep(float current) {
+        return 0.01f;
+    }
+
 
     private static float speedFactorUnitInc(float curValue) {
         return 0.01f;
@@ -29,19 +50,21 @@ public class Main extends PApplet {
     }
 
 
-    public static final String CONTROLS_ATTRACTORS =
-            "R: Rossler Attractor\n" +
-            "L: Lorentz Attractor\n" +
-            "C: ChuaAttractor\n" +
-            "SHIFT-L: Modified Lorentz Attractor\n" +
-            "SHIFT-C: LuChen Attractor";
+    public static final String DES_CONTROLS_ATTRACTORS = "R .............. Rossler Attractor\n" +
+            "L .............. Lorentz Attractor\n" +
+            "C .............. ChuaAttractor\n" +
+            "M .............. Modified Lorentz Attractor\n" +
+            "H .............. LuChen Attractor\n\n" +
+            "+/- ............ Increase/Decrease Speed\n" +
+            "Shift +/- ........ Increase/Decrease fixed Zoom";
 
-    public static final String CONTROLS_OTHERS =
-            "V: Toggle Camera\n" +
-            "+/-: Increase/Decrease Speed\n" +
-            "CTRL-R: Reset";
+    public static final String DES_CONTROLS_OTHERS =
+            "V .............. Toggle Camera\n" +
+            "CTRL-R ........... Reset Attractor\n" +
+            "Shift-R .......... Reset fixed Zoom\n" +
+            "Shift-C .......... Toggle Controls";
 
-    public static final String DES_FULL = "\n\b\t\tCONTROLS\n\n" + CONTROLS_ATTRACTORS + "\n\n" + CONTROLS_OTHERS;
+    public static final String DES_FULL = "\n\b\t\tCONTROLS\n\n" + DES_CONTROLS_ATTRACTORS + "\n\n" + DES_CONTROLS_OTHERS;
 
     @NotNull
     private static String getSpeedFactorText(float speedFactor) {
@@ -50,12 +73,12 @@ public class Main extends PApplet {
 
     @NotNull
     private static String getCameraText(boolean freeCam) {
-        return "Camera [V]: " + (freeCam? "Free": "OFF");
+        return "Camera [V]: " + (freeCam? "Free": "Fixed");
     }
 
     @NotNull
     private static String getStatusText(float speedFactor, boolean freeCam) {
-        return getSpeedFactorText(speedFactor) + "\n" + getCameraText(freeCam);
+        return getCameraText(freeCam) + "  |  " + getSpeedFactorText(speedFactor);
     }
 
 
@@ -64,8 +87,15 @@ public class Main extends PApplet {
         return new Dimension(Math.round(displayW / 1.4f), Math.round(displayH / 1.4f));
     }
 
+    public float getTextSize(float size) {
+        return R.getTextSize(this, size);
+    }
 
+
+
+    // Ui
     private float _w, _h;
+    private PFont pdSans, pdSansMedium;
 
     @NotNull
     private AttractorI mAttractor = new LorentzAttractor();       // todo
@@ -74,11 +104,14 @@ public class Main extends PApplet {
     private float xMin, xMax, yMin, yMax, zMin, zMax;
     private float mSpeedFactor = SPEED_FACTOR_DEFAULT;
 
+    private float attractorZoom = 1;
+
     private long mLastDrawMs = -1;
 
     @Nullable
     private PeasyCam mPeasyCam;
     private boolean mFreeCam = DEFAULT_FREE_CAM;
+    private boolean mShowControls = DEFAULT_CONTROLS_SHOWN;
 
     @Nullable
     private KeyEvent mKeyEvent;
@@ -91,22 +124,30 @@ public class Main extends PApplet {
 
     @Override
     public void settings() {
-        final Dimension s = windowSize(displayWidth, displayHeight);
-        size(s.width, s.height, P3D);
-//        fullScreen(P3D);
+        final Dimension size = windowSize(displayWidth, displayHeight);
+        size(size.width, size.height, P3D);
 
-        _w = width; _h = height;
+        _w = width;
+        _h = height;
+
+        PJOGL.setIcon(R.APP_ICON.toString());       // app icon
     }
 
     @Override
     public void setup() {
-        surface.setTitle("Attractors");
+        surface.setTitle(R.APP_NAME);
         surface.setResizable(true);
         frameRate(120);
 
         // Sync
         setFreeCamInternal(mFreeCam);
         setAttractorInternal(mAttractor);
+
+
+        pdSans = createFont(R.FONT_PD_SANS_REGULAR.toString(), 20);
+        pdSansMedium = createFont(R.FONT_PD_SANS_MEDIUM.toString(), 20);
+
+        textFont(pdSans);       // Default
     }
 
 
@@ -128,8 +169,21 @@ public class Main extends PApplet {
         /* Handle Keys */
         if (keyPressed && mKeyEvent != null) {
             switch (mKeyEvent.getKeyCode()) {
-                case java.awt.event.KeyEvent.VK_DEAD_CEDILLA, java.awt.event.KeyEvent.VK_PLUS -> changeSpeedFactorByUnit(true);
-                case java.awt.event.KeyEvent.VK_DEAD_OGONEK, java.awt.event.KeyEvent.VK_MINUS -> changeSpeedFactorByUnit(false);
+                case java.awt.event.KeyEvent.VK_DEAD_CEDILLA, java.awt.event.KeyEvent.VK_PLUS -> {
+                    if (mKeyEvent.isShiftDown()) {
+                        incAttractorZoom();
+                    } else {
+                        changeSpeedFactorByUnit(true);
+                    }
+                }
+                case java.awt.event.KeyEvent.VK_DEAD_OGONEK, java.awt.event.KeyEvent.VK_MINUS -> {
+                    if (mKeyEvent.isShiftDown()) {
+                        decAttractorZoom();
+                    } else {
+                        changeSpeedFactorByUnit(false);
+                    }
+                }
+
             }
         }
     }
@@ -169,9 +223,14 @@ public class Main extends PApplet {
         final Vector o = drawOrigin();
         translate(o.x, o.y, o.z);
 
-        scale(drawConfig.getDrawingScale(this));
-        strokeWeight(drawConfig.getDrawingStrokeWeight(this));
+        if (!mFreeCam) {
+            camera(o.x * 0.53f /* sin(radians(32)) */, o.y * -0.95f /* sin(radians(-72)) */, o.y * 1.6f /* 1/tan(radians(32)) */, 0, 0, 0, 0, 1, 0);
+        }
 
+        final float scale = drawConfig.getDrawingScale(this) * getAttractorZoom();
+        scale(scale * (ATTRACTOR_INVERT_X ? -1 : 1), scale * (ATTRACTOR_INVERT_Y ? -1 : 1), scale * (ATTRACTOR_INVERT_Z ? -1 : 1));
+
+        strokeWeight(drawConfig.getDrawingStrokeWeight(this));
         final Color fill = drawConfig.drawingFill();
         if (fill != null) {
             fill(fill.getRGB());
@@ -197,19 +256,48 @@ public class Main extends PApplet {
         }
 
 
+        final float h_offset = width * 0.009f;
+        final float v_offset = height / 96f;
 
         // Title
+        final float attTitleTextSize = getTextSize(R.ATTRACTOR_TITLE_TEXT_SIZE);
         textAlign(LEFT, BOTTOM);
-        textSize(24);
-        fill(drawConfig.fg().getRGB());
-        text(attr.getTitle(),20, height - 20);
+        textFont(pdSansMedium, attTitleTextSize);
+        fill(drawConfig.accent().getRGB());
+        text(attr.getTitle(), h_offset, height - v_offset - attTitleTextSize);
 
         // Status
+        final float statusTextSize = getTextSize(R.STATUS_TEXT_SIZE);
         final String status = getStatusText(mSpeedFactor, mFreeCam);
         textAlign(RIGHT, BOTTOM);
-        textSize(17);
+        textFont(pdSans, statusTextSize);
         fill(drawConfig.fg().getRGB());
-        text(status,width - 20, height - 20);
+        text(status,width - h_offset, height - v_offset - statusTextSize);
+
+        // Controls
+        if (controlsShown()) {
+            pushStyle();
+            final float titleTextSize = getTextSize(R.CONTROLS_DES_TITLE_TEXT_SIZE);
+            final float titleY = v_offset * 2;
+
+            fill(drawConfig.accent().getRGB());
+            textFont(pdSansMedium, titleTextSize);
+            textAlign(LEFT, TOP);
+            text("Attractor Controls", h_offset * 3, titleY);
+            textAlign(RIGHT, TOP);
+            text("View Controls", width - h_offset * 3, titleY);
+
+            fill(drawConfig.fg().getRGB());
+            textFont(pdSans, getTextSize(R.CONTROLS_DES_TEXT_SIZE));
+
+            final float desY = titleY + titleTextSize + v_offset * 1.5f;
+            textAlign(LEFT, TOP);
+            text(DES_CONTROLS_ATTRACTORS, h_offset, desY);
+
+            textAlign(RIGHT, TOP);
+            text(DES_CONTROLS_OTHERS, width - h_offset, desY);
+            popStyle();
+        }
 
         // Controls
 //        textAlign(LEFT, TOP);
@@ -243,18 +331,37 @@ public class Main extends PApplet {
 
             case java.awt.event.KeyEvent.VK_R -> {
                 if (event.isControlDown()) {
-                    reset();
+                    resetAttractor();
+                } else if (event.isShiftDown()) {
+                    resetAttractorZoom();
                 } else {
                     setAttractor(new RosslerAttractor());
                 }
             }
 
-            case java.awt.event.KeyEvent.VK_L -> setAttractor(event.isShiftDown()? new ModifiedLorentzAttractor(): new LorentzAttractor());
-            case java.awt.event.KeyEvent.VK_C -> setAttractor(event.isShiftDown()? new LuChenAttractor(): new ChuaAttractor());
+            case java.awt.event.KeyEvent.VK_L -> setAttractor(new LorentzAttractor());
+            case java.awt.event.KeyEvent.VK_C -> {
+                if (event.isShiftDown()) {
+                    toggleShowControls();
+                } else {
+                    setAttractor(new ChuaAttractor());
+                }
+            }
+
+            case java.awt.event.KeyEvent.VK_M -> setAttractor(new ModifiedLorentzAttractor());
+            case java.awt.event.KeyEvent.VK_H -> setAttractor(new LuChenAttractor());
         }
     }
 
-    private void reset() {
+    @Override
+    public void keyReleased(KeyEvent event) {
+        super.keyReleased(event);
+        if (mKeyEvent != null && mKeyEvent.getKeyCode() == event.getKeyCode()) {
+            mKeyEvent = null;
+        }
+    }
+
+    private void resetAttractor() {
         mPoints.clear();
         mLastDrawMs = -1;
     }
@@ -284,8 +391,8 @@ public class Main extends PApplet {
 
 
     protected void onAttractorChanged(@Nullable AttractorI prev, @NotNull AttractorI _new) {
-        reset();
-        surface.setTitle(_new.getTitle());
+        resetAttractor();
+        surface.setTitle(R.APP_NAME + " - " + _new.getTitle());
     }
 
     @NotNull
@@ -308,8 +415,42 @@ public class Main extends PApplet {
     }
 
 
+    public void setShowControls(boolean showControls) {
+        mShowControls = showControls;
+    }
+
+    public void toggleShowControls() {
+        setShowControls(!mShowControls);
+    }
+
+    public boolean controlsShown() {
+        return SHOW_CONTROLS_DES && mShowControls;
+    }
+
 
     /* Camera */
+
+    public void setAttractorZoom(float zoom) {
+        if (mFreeCam)
+            return;
+        attractorZoom = constrain(zoom, ATTRACTOR_ZOOM_MIN, ATTRACTOR_ZOOM_MAX);
+    }
+
+    public float getAttractorZoom() {
+        return mFreeCam? 1 : attractorZoom;
+    }
+
+    public void incAttractorZoom() {
+        setAttractorZoom(attractorZoom + attractorZoomIncStep(attractorZoom));
+    }
+
+    public void decAttractorZoom() {
+        setAttractorZoom(attractorZoom - attractorZoomDecStep(attractorZoom));
+    }
+
+    public void resetAttractorZoom() {
+        setAttractorZoom(1);
+    }
 
     @NotNull
     private PeasyCam createCam(@Nullable float[] rotations) {
@@ -319,6 +460,8 @@ public class Main extends PApplet {
         if (rotations == null) {
             rotations = INITIAL_CAM_ROTATIONS;
         }
+
+        cam.reset();
 
         cam.setRotations(rotations[0], rotations[1], rotations[2]);
         return cam;
