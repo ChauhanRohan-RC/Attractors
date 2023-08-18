@@ -1,6 +1,6 @@
 # Chaotic Attractors
 #### This a 3D Simulation of mathematical chaotic Attractor systems in processing java
-#### [View Demo on YouTube](https://youtu.be/sQUEDPN82Co)
+#### [View Demo on YouTube](https://youtu.be/IIQ7Psl2gVA)
 ###### See also
 [Fourier Series Simulation](https://github.com/ChauhanRohan-RC/Fourier-Series.git)  
 [RSA Encryptor](https://github.com/ChauhanRohan-RC/RSA-Encryptor.git)  
@@ -9,7 +9,7 @@
 ![Lorentz](graphics/thumb.png)
 
 ## Introduction
-* Attractors are mathematical chaotic systems governed by parametric partial differential equations which evolve through time (or a independent variable) depending on the initial state. 
+* Attractors are mathematical chaotic systems governed by parametric partial differential equations which evolve through time (or an independent variable) depending on the initial state. 
 * An attractor is a dynamic systems, state of which at any point is completely deterministic, but is greatly affected by even tiny changes in initial conditions. 
 * Thus, attractors are chaotic (a system which appears random but is fully deterministic)
 
